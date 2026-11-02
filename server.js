@@ -1,13 +1,14 @@
 
 import express from 'express';
+
 const app = express();
 
-// Task 1: Configure middleware
+// Task 1: Middleware
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// In-memory array to store books
+// In-memory array
 let books = [];
 
 
@@ -58,11 +59,11 @@ app.post('/api/books', (req, res) => {
         available > quantity
     ) {
         return res.status(400).json({
-            message: 'Invalid quantity or available value'
+            message: 'Invalid quantity values'
         });
     }
 
-    // Create new book
+    // Create book
     const newBook = {
         id,
         title: title.trim(),
@@ -72,7 +73,6 @@ app.post('/api/books', (req, res) => {
         available
     };
 
-    // Store book in array
     books.push(newBook);
 
     res.status(201).json({
@@ -97,6 +97,39 @@ app.get('/api/books', (req, res) => {
     }
 
     res.status(200).json(books);
+
+});
+
+
+// Task 6: Search Books by Title
+
+
+// GET /api/books/search?title=java
+app.get('/api/books/search', (req, res) => {
+
+    const searchTitle = req.query.title;
+
+    if (!searchTitle || !searchTitle.trim()) {
+        return res.status(400).json({
+            message: 'Please provide a title to search'
+        });
+    }
+
+    // Case-sensitive search
+    const result = books.filter(book =>
+        book.title.includes(searchTitle)
+    );
+
+    if (result.length === 0) {
+        return res.status(404).json({
+            message: 'No matching books found'
+        });
+    }
+
+    res.status(200).json({
+        message: 'Books found successfully',
+        books: result
+    });
 
 });
 
@@ -130,7 +163,6 @@ app.put('/api/books/:id', (req, res) => {
 
     const id = Number(req.params.id);
 
-    // Find book
     const book = books.find(book => book.id === id);
 
     if (!book) {
@@ -139,14 +171,13 @@ app.put('/api/books/:id', (req, res) => {
         });
     }
 
-    // Prevent changing book ID
+    // Prevent changing ID
     if (req.body.id !== undefined) {
         return res.status(400).json({
             message: 'Book ID cannot be changed'
         });
     }
 
-    // Allowed update fields
     const permittedFields = [
         'title',
         'author',
@@ -182,10 +213,10 @@ app.put('/api/books/:id', (req, res) => {
         });
     }
 
-    // Validate quantity
     const newQuantity = quantity === undefined ? book.quantity : quantity;
     const newAvailable = available === undefined ? book.available : available;
 
+    // Validate quantity
     if (
         !Number.isInteger(newQuantity) ||
         !Number.isInteger(newAvailable) ||
@@ -198,7 +229,7 @@ app.put('/api/books/:id', (req, res) => {
         });
     }
 
-    // Update book details
+    // Update details
     if (title !== undefined) book.title = title.trim();
     if (author !== undefined) book.author = author.trim();
     if (category !== undefined) book.category = category.trim();
@@ -208,7 +239,111 @@ app.put('/api/books/:id', (req, res) => {
 
     res.status(200).json({
         message: 'Book updated successfully',
-        book: book
+        book
+    });
+
+});
+
+
+// Task 5: Delete a Book
+
+
+// DELETE /api/books/:id
+app.delete('/api/books/:id', (req, res) => {
+
+    const id = Number(req.params.id);
+
+    const index = books.findIndex(book => book.id === id);
+
+    if (index === -1) {
+        return res.status(404).json({
+            message: 'Book not found'
+        });
+    }
+
+    const book = books[index];
+
+    // Check whether any copies are issued
+    if (book.available < book.quantity) {
+        return res.status(400).json({
+            message: 'Cannot delete book. One or more copies are issued'
+        });
+    }
+
+    // Delete book
+    books.splice(index, 1);
+
+    res.status(200).json({
+        message: 'Book deleted successfully',
+        book
+    });
+
+});
+
+
+// Task 7: Issue a Book
+
+
+// POST /api/books/:id/issue
+app.post('/api/books/:id/issue', (req, res) => {
+
+    const id = Number(req.params.id);
+
+    const book = books.find(book => book.id === id);
+
+    if (!book) {
+        return res.status(404).json({
+            message: 'Book not found'
+        });
+    }
+
+    // Check availability
+    if (book.available <= 0) {
+        return res.status(400).json({
+            message: 'No copies available for issue'
+        });
+    }
+
+    // Decrease available copies
+    book.available--;
+
+    res.status(200).json({
+        message: 'Book issued successfully',
+        book
+    });
+
+});
+
+
+// Task 7: Return a Book
+
+
+// POST /api/books/:id/return
+app.post('/api/books/:id/return', (req, res) => {
+
+    const id = Number(req.params.id);
+
+    const book = books.find(book => book.id === id);
+
+    if (!book) {
+        return res.status(404).json({
+            message: 'Book not found'
+        });
+    }
+
+    // Check whether a copy was previously issued
+    if (book.available >= book.quantity) {
+        return res.status(400).json({
+            message: 'No issued copies available to return'
+        });
+    }
+
+    // Increase available copies
+    book.available++;
+
+    res.status(200).json({
+        message: 'Book returned successfully',
+        book
     });
 
 });
